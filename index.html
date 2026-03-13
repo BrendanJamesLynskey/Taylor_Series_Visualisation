@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Taylor Series Visualisations</title>
+<script src="https://cdn.plot.ly/plotly-2.35.0.min.js"></script>
+<style>
+  :root {
+    --bg: #0f0f13;
+    --surface: #1a1a24;
+    --border: #2a2a3a;
+    --text: #e0e0e8;
+    --muted: #8888a0;
+    --accent: #6c8cff;
+    --accent2: #ff6c8c;
+    --accent3: #6cffc8;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  header {
+    text-align: center;
+    padding: 3rem 1rem 1.5rem;
+    background: linear-gradient(180deg, #16162a 0%, var(--bg) 100%);
+  }
+
+  header h1 {
+    font-size: 2.4rem;
+    font-weight: 300;
+    letter-spacing: 0.04em;
+    background: linear-gradient(135deg, var(--accent), var(--accent3));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  header p {
+    color: var(--muted);
+    font-size: 1.05rem;
+    margin-top: 0.5rem;
+    max-width: 640px;
+    margin-inline: auto;
+  }
+
+  .controls {
+    display: flex;
+    justify-content: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    padding: 1.5rem 1rem;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  .controls button {
+    background: var(--surface);
+    color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 0.5rem 1.1rem;
+    border-radius: 999px;
+    font-size: 0.92rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'Courier New', monospace;
+  }
+
+  .controls button:hover {
+    border-color: var(--accent);
+    color: var(--text);
+  }
+
+  .controls button.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+
+  .card {
+    max-width: 1100px;
+    margin: 0 auto 2rem;
+    padding: 0 1rem;
+  }
+
+  .card-inner {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+
+  .card-header {
+    padding: 1.5rem 2rem 0.5rem;
+  }
+
+  .card-header h2 {
+    font-size: 1.35rem;
+    font-weight: 400;
+  }
+
+  .card-header .formula {
+    font-family: 'Courier New', monospace;
+    color: var(--accent);
+    font-size: 0.95rem;
+    margin-top: 0.25rem;
+  }
+
+  .card-header .convergence {
+    color: var(--accent2);
+    font-size: 0.88rem;
+    margin-top: 0.2rem;
+  }
+
+  .card-header .description {
+    color: var(--muted);
+    font-size: 0.9rem;
+    margin-top: 0.35rem;
+  }
+
+  .plot-container {
+    width: 100%;
+    height: 480px;
+  }
+
+  .order-slider {
+    padding: 0.75rem 2rem 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .order-slider label {
+    font-size: 0.88rem;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .order-slider input[type="range"] {
+    flex: 1;
+    accent-color: var(--accent);
+    height: 4px;
+  }
+
+  .order-slider .order-val {
+    font-family: 'Courier New', monospace;
+    color: var(--accent);
+    min-width: 2.5rem;
+    text-align: right;
+    font-size: 1rem;
+  }
+
+  .legend-hint {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.82rem;
+    padding-bottom: 1.5rem;
+  }
+
+  @media (max-width: 600px) {
+    header h1 { font-size: 1.6rem; }
+    .plot-container { height: 340px; }
+    .card-header { padding: 1rem 1rem 0.4rem; }
+    .order-slider { padding: 0.5rem 1rem 1rem; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Taylor Series Explorations</h1>
+  <p>Interactive visualisations of Taylor polynomial approximations — watch them converge within the radius and diverge beyond it.</p>
+</header>
+
+<div class="controls" id="fn-buttons"></div>
+
+<div id="cards-container"></div>
+
+<div class="legend-hint">Drag to pan · Scroll to zoom · Double-click to reset</div>
+
+<script>
+// ── Function definitions ──────────────────────────────────────────
+
+const FUNCTIONS = [
+  {
+    id: 'geometric',
+    name: '1 / (1 − x)',
+    formula: 'T(x) = Σ xⁿ',
+    convergence: 'Radius of convergence: |x| < 1',
+    description: 'The geometric series — the simplest example of finite-radius convergence. Diverges explosively outside |x| = 1.',
+    f: x => 1 / (1 - x),
+    taylor: (x, n) => { let s = 0; let xn = 1; for (let k = 0; k <= n; k++) { s += xn; xn *= x; } return s; },
+    xRange: [-2.5, 3],
+    yClamp: [-15, 15],
+    roc: [-1, 1],
+    singularities: [1],
+  },
+  {
+    id: 'ln',
+    name: 'ln(1 + x)',
+    formula: 'T(x) = Σ (−1)ⁿ⁺¹ xⁿ/n',
+    convergence: 'Radius of convergence: −1 < x ≤ 1',
+    description: 'Converges conditionally at x = 1 (the harmonic series in disguise) and diverges beyond.',
+    f: x => Math.log(1 + x),
+    taylor: (x, N) => { let s = 0; let xn = x; for (let k = 1; k <= N; k++) { s += (k % 2 === 1 ? 1 : -1) * xn / k; xn *= x; } return s; },
+    xRange: [-2.5, 3],
+    yClamp: [-8, 8],
+    roc: [-1, 1],
+    singularities: [-1],
+  },
+  {
+    id: 'inv1px2',
+    name: '1 / (1 + x²)',
+    formula: 'T(x) = Σ (−1)ⁿ x²ⁿ',
+    convergence: 'Radius of convergence: |x| < 1  (poles at x = ±i)',
+    description: 'A smooth, well-behaved function everywhere on ℝ — yet the Taylor series diverges for |x| > 1 due to complex poles.',
+    f: x => 1 / (1 + x * x),
+    taylor: (x, N) => { let s = 0; let x2n = 1; const x2 = x * x; for (let k = 0; k <= N; k++) { s += (k % 2 === 0 ? 1 : -1) * x2n; x2n *= x2; } return s; },
+    xRange: [-3, 3],
+    yClamp: [-10, 10],
+    roc: [-1, 1],
+    singularities: [],
+  },
+  {
+    id: 'sqrt',
+    name: '√(1 + x)',
+    formula: 'T(x) = Σ C(½, n) xⁿ   [binomial series]',
+    convergence: 'Radius of convergence: |x| ≤ 1',
+    description: 'The generalised binomial series for fractional exponents. Converges at x = 1, diverges beyond.',
+    f: x => Math.sqrt(1 + x),
+    taylor: (x, N) => {
+      let s = 1; let coeff = 1; let xn = 1;
+      for (let k = 1; k <= N; k++) {
+        coeff *= (0.5 - k + 1) / k;
+        xn *= x;
+        s += coeff * xn;
+      }
+      return s;
+    },
+    xRange: [-2.5, 3],
+    yClamp: [-8, 8],
+    roc: [-1, 1],
+    singularities: [-1],
+  },
+  {
+    id: 'arctan',
+    name: 'arctan(x)',
+    formula: 'T(x) = Σ (−1)ⁿ x²ⁿ⁺¹ / (2n+1)',
+    convergence: 'Radius of convergence: |x| ≤ 1',
+    description: 'The Leibniz–Gregory series. At x = 1 it gives π/4 — one of the most celebrated formulas in mathematics.',
+    f: x => Math.atan(x),
+    taylor: (x, N) => {
+      let s = 0;
+      let xpow = x;
+      const x2 = x * x;
+      for (let k = 0; k <= N; k++) {
+        s += (k % 2 === 0 ? 1 : -1) * xpow / (2 * k + 1);
+        xpow *= x2;
+      }
+      return s;
+    },
+    xRange: [-3.5, 3.5],
+    yClamp: [-8, 8],
+    roc: [-1, 1],
+    singularities: [],
+  },
+  {
+    id: 'tanh',
+    name: 'tanh(x)',
+    formula: 'T(x) = Σ Bₙ 2ⁿ(2ⁿ−1) xⁿ/n!  [Bernoulli]',
+    convergence: 'Radius of convergence: |x| < π/2',
+    description: 'Converges only up to |x| = π/2 — where the complex poles of tan(z) at ±iπ/2 cast their shadow onto the real line.',
+    f: x => Math.tanh(x),
+    taylor: (x, N) => {
+      // Use direct computation of tanh Taylor coefficients
+      // tanh(x) = x - x³/3 + 2x⁵/15 - 17x⁷/315 + ...
+      // Compute via: tanh = sinh/cosh, or use recurrence
+      // Easier: compute sinh and cosh series, then divide
+      let sinh = 0, cosh = 0;
+      let term = 1;
+      for (let k = 0; k <= 2 * N + 1; k++) {
+        if (k % 2 === 0) cosh += term; else sinh += term;
+        term *= x / (k + 1);
+      }
+      return cosh === 0 ? null : sinh / cosh;
+    },
+    xRange: [-4, 4],
+    yClamp: [-5, 5],
+    roc: [-Math.PI / 2, Math.PI / 2],
+    singularities: [],
+  },
+  {
+    id: 'exp',
+    name: 'eˣ',
+    formula: 'T(x) = Σ xⁿ / n!',
+    convergence: 'Radius of convergence: ∞',
+    description: 'Converges everywhere — a rare and beautiful property. Higher orders simply extend the faithful region.',
+    f: x => Math.exp(x),
+    taylor: (x, N) => { let s = 0; let term = 1; for (let k = 0; k <= N; k++) { s += term; term *= x / (k + 1); } return s; },
+    xRange: [-6, 6],
+    yClamp: [-20, 60],
+    roc: null,
+    singularities: [],
+  },
+  {
+    id: 'sin',
+    name: 'sin(x)',
+    formula: 'T(x) = Σ (−1)ⁿ x²ⁿ⁺¹ / (2n+1)!',
+    convergence: 'Radius of convergence: ∞',
+    description: 'Converges everywhere. Watch how each additional term extends the faithful region further outward from the origin.',
+    f: x => Math.sin(x),
+    taylor: (x, N) => {
+      let s = 0; let term = x;
+      for (let k = 0; k <= N; k++) {
+        s += (k % 2 === 0 ? 1 : -1) * term;
+        term *= x * x / ((2 * k + 2) * (2 * k + 3));
+      }
+      return s;
+    },
+    xRange: [-12, 12],
+    yClamp: [-4, 4],
+    roc: null,
+    singularities: [],
+  },
+  {
+    id: 'cos',
+    name: 'cos(x)',
+    formula: 'T(x) = Σ (−1)ⁿ x²ⁿ / (2n)!',
+    convergence: 'Radius of convergence: ∞',
+    description: 'The even counterpart to sine. Successive approximations overshoot and undershoot in a beautiful oscillating dance.',
+    f: x => Math.cos(x),
+    taylor: (x, N) => {
+      let s = 0; let term = 1;
+      for (let k = 0; k <= N; k++) {
+        s += (k % 2 === 0 ? 1 : -1) * term;
+        term *= x * x / ((2 * k + 1) * (2 * k + 2));
+      }
+      return s;
+    },
+    xRange: [-12, 12],
+    yClamp: [-4, 4],
+    roc: null,
+    singularities: [],
+  },
+  {
+    id: 'sinc',
+    name: 'sin(x) / x',
+    formula: 'T(x) = Σ (−1)ⁿ x²ⁿ / (2n+1)!',
+    convergence: 'Radius of convergence: ∞',
+    description: 'The sinc function — converges everywhere. Watch the polynomials gracefully approximate the ripples.',
+    f: x => x === 0 ? 1 : Math.sin(x) / x,
+    taylor: (x, N) => {
+      let s = 0; let term = 1;
+      for (let k = 0; k <= N; k++) {
+        s += (k % 2 === 0 ? 1 : -1) * term;
+        term *= x * x / ((2 * k + 2) * (2 * k + 3));
+      }
+      return s;
+    },
+    xRange: [-20, 20],
+    yClamp: [-1.5, 1.5],
+    roc: null,
+    singularities: [],
+  },
+  {
+    id: 'cbrt',
+    name: '(1 + x)^(1/3)',
+    formula: 'T(x) = Σ C(⅓, n) xⁿ   [binomial series]',
+    convergence: 'Radius of convergence: |x| ≤ 1',
+    description: 'Cube-root binomial series. The fractional exponent creates increasingly wild oscillations outside the radius.',
+    f: x => Math.cbrt(1 + x),
+    taylor: (x, N) => {
+      let s = 1; let coeff = 1; let xn = 1;
+      for (let k = 1; k <= N; k++) {
+        coeff *= (1/3 - k + 1) / k;
+        xn *= x;
+        s += coeff * xn;
+      }
+      return s;
+    },
+    xRange: [-2.5, 3],
+    yClamp: [-5, 5],
+    roc: [-1, 1],
+    singularities: [-1],
+  },
+  {
+    id: 'asin',
+    name: 'arcsin(x)',
+    formula: 'T(x) = Σ (2n)! x²ⁿ⁺¹ / (4ⁿ(n!)²(2n+1))',
+    convergence: 'Radius of convergence: |x| ≤ 1',
+    description: 'The inverse sine — defined only on [−1, 1] but its Taylor series also has radius 1. Coefficients grow slowly, so convergence is sluggish near the boundary.',
+    f: x => Math.asin(x),
+    taylor: (x, N) => {
+      let s = 0;
+      let coeff = 1;
+      for (let k = 0; k <= N; k++) {
+        s += coeff * Math.pow(x, 2 * k + 1) / (2 * k + 1);
+        coeff *= (2 * k + 1) / (2 * k + 2);
+      }
+      return s;
+    },
+    xRange: [-2.5, 2.5],
+    yClamp: [-6, 6],
+    roc: [-1, 1],
+    singularities: [],
+  },
+  {
+    id: 'tan',
+    name: 'tan(x)',
+    formula: 'T(x) = x + x³/3 + 2x⁵/15 + 17x⁷/315 + ...',
+    convergence: 'Radius of convergence: |x| < π/2',
+    description: 'The tangent function has poles at ±π/2, giving a finite radius. The Taylor coefficients involve Bernoulli numbers and grow rapidly.',
+    f: x => Math.tan(x),
+    taylor: (x, N) => {
+      // Compute via sin/cos Taylor quotient
+      let sinv = 0, cosv = 0;
+      let term = 1;
+      for (let k = 0; k <= 2 * N + 1; k++) {
+        if (k % 2 === 0) cosv += (((k/2) % 2 === 0) ? 1 : -1) * term;
+        else sinv += ((((k-1)/2) % 2 === 0) ? 1 : -1) * term;
+        term *= x / (k + 1);
+      }
+      return cosv === 0 ? null : sinv / cosv;
+    },
+    xRange: [-5, 5],
+    yClamp: [-10, 10],
+    roc: [-Math.PI / 2, Math.PI / 2],
+    singularities: [-Math.PI / 2, Math.PI / 2],
+  },
+  {
+    id: 'gaussian',
+    name: 'e^(−x²)',
+    formula: 'T(x) = Σ (−1)ⁿ x²ⁿ / n!',
+    convergence: 'Radius of convergence: ∞',
+    description: 'The Gaussian bell curve. Converges everywhere, but the polynomial tails inevitably diverge to ±∞ — a striking visual contrast with the rapidly decaying true function.',
+    f: x => Math.exp(-x * x),
+    taylor: (x, N) => {
+      let s = 0; let term = 1;
+      const x2 = x * x;
+      for (let k = 0; k <= N; k++) {
+        s += (k % 2 === 0 ? 1 : -1) * term;
+        term *= x2 / (k + 1);
+      }
+      return s;
+    },
+    xRange: [-4, 4],
+    yClamp: [-3, 3],
+    roc: null,
+    singularities: [],
+  },
+  {
+    id: 'sinh',
+    name: 'sinh(x)',
+    formula: 'T(x) = Σ x²ⁿ⁺¹ / (2n+1)!',
+    convergence: 'Radius of convergence: ∞',
+    description: 'The hyperbolic sine — the odd part of eˣ. Like its exponential parent, it converges everywhere, but grows without bound.',
+    f: x => Math.sinh(x),
+    taylor: (x, N) => {
+      let s = 0; let term = x;
+      for (let k = 0; k <= N; k++) {
+        s += term;
+        term *= x * x / ((2 * k + 2) * (2 * k + 3));
+      }
+      return s;
+    },
+    xRange: [-6, 6],
+    yClamp: [-30, 30],
+    roc: null,
+    singularities: [],
+  },
+  {
+    id: 'invSqrt',
+    name: '1 / √(1 − x)',
+    formula: 'T(x) = Σ C(−½, n)(−x)ⁿ = Σ (2n)! xⁿ / (4ⁿ(n!)²)',
+    convergence: 'Radius of convergence: |x| < 1',
+    description: 'Appears in the generating function for central binomial coefficients and in relativistic gamma factors. Blows up at x = 1.',
+    f: x => 1 / Math.sqrt(1 - x),
+    taylor: (x, N) => {
+      let s = 1; let coeff = 1;
+      for (let k = 1; k <= N; k++) {
+        coeff *= (2 * k - 1) / (2 * k);
+        s += coeff * Math.pow(x, k);
+      }
+      return s;
+    },
+    xRange: [-3, 2.5],
+    yClamp: [-8, 12],
+    roc: [-1, 1],
+    singularities: [1],
+  },
+  {
+    id: 'arctanh',
+    name: 'arctanh(x)',
+    formula: 'T(x) = Σ x²ⁿ⁺¹ / (2n+1)',
+    convergence: 'Radius of convergence: |x| < 1',
+    description: 'The inverse hyperbolic tangent — equivalently ½ ln((1+x)/(1−x)). Diverges at the vertical asymptotes x = ±1.',
+    f: x => Math.atanh(x),
+    taylor: (x, N) => {
+      let s = 0;
+      let xpow = x;
+      const x2 = x * x;
+      for (let k = 0; k <= N; k++) {
+        s += xpow / (2 * k + 1);
+        xpow *= x2;
+      }
+      return s;
+    },
+    xRange: [-2.5, 2.5],
+    yClamp: [-6, 6],
+    roc: [-1, 1],
+    singularities: [-1, 1],
+  },
+  {
+    id: 'lambertish',
+    name: 'x / (eˣ − 1)',
+    formula: 'T(x) = Σ Bₙ xⁿ / n!  [Bernoulli numbers]',
+    convergence: 'Radius of convergence: |x| < 2π',
+    description: 'The generating function for the Bernoulli numbers. Radius is 2π — set by the nearest poles of 1/(eᶻ−1) in the complex plane at z = ±2πi.',
+    f: x => x === 0 ? 1 : x / (Math.exp(x) - 1),
+    taylor: (x, N) => {
+      // Precompute Bernoulli numbers via Akiyama–Tanigawa algorithm
+      const B = [];
+      const a = [];
+      for (let m = 0; m <= N; m++) {
+        a[m] = 1 / (m + 1);
+        for (let j = m; j >= 1; j--) {
+          a[j - 1] = j * (a[j - 1] - a[j]);
+        }
+        B[m] = a[0];
+      }
+      let s = 0; let xn = 1; let nfact = 1;
+      for (let k = 0; k <= N; k++) {
+        s += B[k] * xn / nfact;
+        xn *= x;
+        nfact *= (k + 1);
+      }
+      return s;
+    },
+    xRange: [-8, 8],
+    yClamp: [-6, 6],
+    roc: [-2 * Math.PI, 2 * Math.PI],
+    singularities: [],
+  },
+  {
+    id: 'sec',
+    name: 'sec(x)',
+    formula: 'T(x) = Σ Eₙ x²ⁿ / (2n)!  [Euler numbers]',
+    convergence: 'Radius of convergence: |x| < π/2',
+    description: 'The secant function, with poles at ±π/2. Its Taylor coefficients are the Euler numbers — a sequence full of combinatorial meaning.',
+    f: x => 1 / Math.cos(x),
+    taylor: (x, N) => {
+      // Compute via 1 / cos Taylor series quotient
+      let cosv = 0;
+      let term = 1;
+      for (let k = 0; k <= 2 * N; k++) {
+        if (k % 2 === 0) {
+          cosv += (((k / 2) % 2 === 0) ? 1 : -1) * term;
+        }
+        term *= x / (k + 1);
+      }
+      return cosv === 0 ? null : 1 / cosv;
+    },
+    xRange: [-4, 4],
+    yClamp: [-8, 8],
+    roc: [-Math.PI / 2, Math.PI / 2],
+    singularities: [-Math.PI / 2, Math.PI / 2],
+  },
+  {
+    id: 'erf',
+    name: 'erf(x)',
+    formula: 'T(x) = (2/√π) Σ (−1)ⁿ x²ⁿ⁺¹ / (n!(2n+1))',
+    convergence: 'Radius of convergence: ∞',
+    description: 'The error function from probability and statistics. Entire — converges everywhere — but the polynomial tails swing wildly away from the ±1 asymptotes.',
+    f: x => {
+      // Numerical erf via Horner approximation
+      const t = 1 / (1 + 0.3275911 * Math.abs(x));
+      const poly = t * (0.254829592 + t * (-0.284496736 + t * (1.421413741 + t * (-1.453152027 + t * 1.061405429))));
+      const val = 1 - poly * Math.exp(-x * x);
+      return x >= 0 ? val : -val;
+    },
+    taylor: (x, N) => {
+      const c = 2 / Math.sqrt(Math.PI);
+      let s = 0; let term = x; let nfact = 1;
+      for (let k = 0; k <= N; k++) {
+        s += (k % 2 === 0 ? 1 : -1) * term / (nfact * (2 * k + 1));
+        term *= x * x;
+        nfact *= (k + 1);
+      }
+      return c * s;
+    },
+    xRange: [-5, 5],
+    yClamp: [-4, 4],
+    roc: null,
+    singularities: [],
+  },
+];
+
+// ── Colour palette ────────────────────────────────────────────────
+
+const COLORS = {
+  fn: '#ff6c8c',
+  roc: 'rgba(108,140,255,0.18)',
+  rocBorder: 'rgba(108,140,255,0.45)',
+};
+
+const ORDER_COLORS = [
+  '#6c8cff', '#6cffc8', '#ffc86c', '#c86cff',
+  '#ff6c6c', '#6cffff', '#ffff6c', '#ff6cff',
+];
+
+function taylorColor(idx) {
+  return ORDER_COLORS[idx % ORDER_COLORS.length];
+}
+
+// ── Plot helpers ──────────────────────────────────────────────────
+
+function linspace(a, b, n) {
+  const arr = [];
+  const step = (b - a) / (n - 1);
+  for (let i = 0; i < n; i++) arr.push(a + i * step);
+  return arr;
+}
+
+function clampedTrace(xs, ys, yClamp) {
+  return ys.map(y => (y < yClamp[0] || y > yClamp[1]) ? null : y);
+}
+
+function buildTraces(fn, order, showMultiple) {
+  const xs = linspace(fn.xRange[0], fn.xRange[1], 800);
+  const traces = [];
+
+  // Region of convergence shading
+  if (fn.roc) {
+    const roc = fn.roc;
+    traces.push({
+      x: [roc[0], roc[0], roc[1], roc[1]],
+      y: [fn.yClamp[0] - 100, fn.yClamp[1] + 100, fn.yClamp[1] + 100, fn.yClamp[0] - 100],
+      fill: 'toself',
+      fillcolor: COLORS.roc,
+      line: { color: 'transparent' },
+      name: 'Region of convergence',
+      hoverinfo: 'skip',
+      showlegend: true,
+    });
+    // ROC boundary lines
+    for (const bx of roc) {
+      traces.push({
+        x: [bx, bx],
+        y: [fn.yClamp[0] - 100, fn.yClamp[1] + 100],
+        mode: 'lines',
+        line: { color: COLORS.rocBorder, width: 1.5, dash: 'dash' },
+        hoverinfo: 'skip',
+        showlegend: false,
+      });
+    }
+  }
+
+  // True function
+  const fys = xs.map(x => {
+    try { const v = fn.f(x); return isFinite(v) ? v : null; } catch { return null; }
+  });
+  traces.push({
+    x: xs, y: clampedTrace(xs, fys, [fn.yClamp[0] - 5, fn.yClamp[1] + 5]),
+    mode: 'lines',
+    line: { color: COLORS.fn, width: 3 },
+    name: fn.name,
+    connectgaps: false,
+  });
+
+  // Taylor approximations
+  if (showMultiple) {
+    const orders = [1, 2, 3, 5, 8, 13, Math.min(order, 20), order].filter((v, i, a) => a.indexOf(v) === i && v <= order).sort((a, b) => a - b);
+    orders.forEach((n, idx) => {
+      const tys = xs.map(x => fn.taylor(x, n));
+      traces.push({
+        x: xs, y: clampedTrace(xs, tys, fn.yClamp),
+        mode: 'lines',
+        line: { color: taylorColor(idx), width: 1.8 },
+        name: `n = ${n}`,
+        opacity: 0.5 + 0.5 * (idx / (orders.length - 1 || 1)),
+        connectgaps: false,
+      });
+    });
+  }
+  // Always show the selected order prominently
+  const tys = xs.map(x => fn.taylor(x, order));
+  traces.push({
+    x: xs, y: clampedTrace(xs, tys, fn.yClamp),
+    mode: 'lines',
+    line: { color: '#fff', width: 2.5 },
+    name: `T(x), n = ${order}`,
+    connectgaps: false,
+  });
+
+  // Singularity markers
+  for (const sx of fn.singularities) {
+    traces.push({
+      x: [sx, sx], y: [fn.yClamp[0] - 100, fn.yClamp[1] + 100],
+      mode: 'lines',
+      line: { color: 'rgba(255,108,140,0.35)', width: 1.5, dash: 'dot' },
+      hoverinfo: 'skip', showlegend: false,
+    });
+  }
+
+  return traces;
+}
+
+const LAYOUT_TEMPLATE = {
+  paper_bgcolor: 'transparent',
+  plot_bgcolor: 'rgba(0,0,0,0)',
+  font: { color: '#c0c0d0', family: 'Segoe UI, system-ui, sans-serif', size: 12 },
+  margin: { l: 50, r: 20, t: 10, b: 40 },
+  xaxis: {
+    gridcolor: 'rgba(255,255,255,0.06)',
+    zerolinecolor: 'rgba(255,255,255,0.15)',
+    zerolinewidth: 1,
+  },
+  yaxis: {
+    gridcolor: 'rgba(255,255,255,0.06)',
+    zerolinecolor: 'rgba(255,255,255,0.15)',
+    zerolinewidth: 1,
+  },
+  legend: {
+    bgcolor: 'rgba(15,15,19,0.75)',
+    bordercolor: 'rgba(255,255,255,0.1)',
+    borderwidth: 1,
+    font: { size: 11 },
+    x: 1, xanchor: 'right', y: 1,
+  },
+  dragmode: 'pan',
+};
+
+// ── UI construction ───────────────────────────────────────────────
+
+const state = { activeId: null, orders: {}, plots: {} };
+
+function createCard(fn) {
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.id = `card-${fn.id}`;
+  card.innerHTML = `
+    <div class="card-inner">
+      <div class="card-header">
+        <h2>${fn.name}</h2>
+        <div class="formula">${fn.formula}</div>
+        <div class="convergence">${fn.convergence}</div>
+        <div class="description">${fn.description}</div>
+      </div>
+      <div class="plot-container" id="plot-${fn.id}"></div>
+      <div class="order-slider">
+        <label>Taylor order</label>
+        <input type="range" min="1" max="30" value="5" id="slider-${fn.id}">
+        <span class="order-val" id="oval-${fn.id}">5</span>
+      </div>
+    </div>
+  `;
+  return card;
+}
+
+function renderPlot(fn, order) {
+  const traces = buildTraces(fn, order, true);
+  const layout = {
+    ...LAYOUT_TEMPLATE,
+    xaxis: { ...LAYOUT_TEMPLATE.xaxis, range: fn.xRange },
+    yaxis: { ...LAYOUT_TEMPLATE.yaxis, range: fn.yClamp },
+  };
+  const el = document.getElementById(`plot-${fn.id}`);
+  if (state.plots[fn.id]) {
+    Plotly.react(el, traces, layout, { responsive: true, scrollZoom: true, displayModeBar: false });
+  } else {
+    Plotly.newPlot(el, traces, layout, { responsive: true, scrollZoom: true, displayModeBar: false });
+    state.plots[fn.id] = true;
+  }
+}
+
+function showFunction(id) {
+  state.activeId = id;
+  document.querySelectorAll('.controls button').forEach(b => {
+    b.classList.toggle('active', b.dataset.id === id);
+  });
+  FUNCTIONS.forEach(fn => {
+    const card = document.getElementById(`card-${fn.id}`);
+    const show = fn.id === id;
+    card.style.display = show ? '' : 'none';
+    if (show) {
+      // Render (or re-render after resize) when shown
+      renderPlot(fn, state.orders[fn.id]);
+    }
+  });
+}
+
+function init() {
+  const container = document.getElementById('cards-container');
+  const btnContainer = document.getElementById('fn-buttons');
+
+  FUNCTIONS.forEach(fn => {
+    state.orders[fn.id] = 5;
+
+    // Navigation button
+    const btn = document.createElement('button');
+    btn.textContent = fn.name;
+    btn.dataset.id = fn.id;
+    btn.addEventListener('click', () => showFunction(fn.id));
+    btnContainer.appendChild(btn);
+
+    // Card
+    container.appendChild(createCard(fn));
+
+    // Slider
+    const slider = document.getElementById(`slider-${fn.id}`);
+    const oval = document.getElementById(`oval-${fn.id}`);
+    slider.addEventListener('input', () => {
+      const n = parseInt(slider.value);
+      state.orders[fn.id] = n;
+      oval.textContent = n;
+      renderPlot(fn, n);
+    });
+  });
+
+  // Show first function by default
+  showFunction(FUNCTIONS[0].id);
+}
+
+init();
+</script>
+</body>
+</html>
